@@ -1,0 +1,5 @@
+R,Method,Tracks_Created,Identity_Changes,Fragmented_GT_IDs,Contaminated_Tracks,FP_Tracks_Shared_With_GT
+16,kf_motion,83,1221,19,42,0
+16,kf_dinov3,77,1162,19,38,0
+256,kf_motion,23,196,10,6,0
+256,kf_dinov3,23,182,11,8,0

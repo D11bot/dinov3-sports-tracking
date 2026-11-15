@@ -1,0 +1,13 @@
+Gap_Length,Method,Tests,Successful,Recovery_Rate,Hijack_Count
+2,appearance,12,12,100.0,0
+2,fusion,12,11,91.67,0
+2,iou,12,11,91.67,0
+3,appearance,12,11,91.67,0
+3,fusion,12,8,66.67,0
+3,iou,12,9,75.0,0
+5,appearance,12,10,83.33,1
+5,fusion,12,6,50.0,0
+5,iou,12,7,58.33,0
+8,appearance,12,11,91.67,0
+8,fusion,12,4,33.33,0
+8,iou,12,4,33.33,0

@@ -1,0 +1,9 @@
+R_Variance,Method,Identity_Changes,Contaminated_Tracks,Total_Tracks
+16,kf_motion,1025,32,66
+16,kf_dinov3,1041,27,66
+64,kf_motion,338,7,34
+64,kf_dinov3,353,7,33
+144,kf_motion,74,0,19
+144,kf_dinov3,76,0,19
+256,kf_motion,0,0,17
+256,kf_dinov3,0,0,17

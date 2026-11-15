@@ -1,0 +1,9 @@
+R_Variance,Method,Total_Tracks,Identity_Changes,Fragmented_GT_IDs,Contaminated_Tracks,FP_Tracks_Shared_With_GT
+16,kf_dinov3,92,1375,17,52,0
+16,kf_motion,100,1420,17,64,0
+64,kf_dinov3,51,844,17,24,0
+64,kf_motion,49,878,17,27,0
+144,kf_dinov3,34,359,13,13,0
+144,kf_motion,34,345,14,15,0
+256,kf_dinov3,23,105,6,3,0
+256,kf_motion,23,113,6,3,0

@@ -1,0 +1,9 @@
+Condition,Method,Detection_Recall,Detection_Precision,Mean_Matched_IoU,ID_Changes_Diagnostic,Fragmented_GT_IDs,Contaminated_Tracks
+clean,kf_motion,1.0,1.0,1.0,0,0,0
+clean,kf_dinov3,1.0,1.0,1.0,0,0,0
+missing_20pct,kf_motion,0.795,1.0,1.0,0,0,0
+missing_20pct,kf_dinov3,0.795,1.0,1.0,0,0,0
+box_jitter_15pct,kf_motion,0.798,0.798,0.656,965,17,58
+box_jitter_15pct,kf_dinov3,0.798,0.798,0.656,941,17,48
+false_positive_1,kf_motion,1.0,0.944,1.0,8,4,0
+false_positive_1,kf_dinov3,1.0,0.944,1.0,6,2,0

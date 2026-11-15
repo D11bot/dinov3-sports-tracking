@@ -1,0 +1,7 @@
+Box_Jitter,Method,Identity_Changes,Fragmented_GT_IDs,Contaminated_Tracks,FP_Tracks_Shared_With_GT
+0.05,kf_dinov3,252,10,3,0
+0.05,kf_motion,263,11,2,0
+0.1,kf_dinov3,1041,17,27,0
+0.1,kf_motion,1025,17,32,0
+0.15,kf_dinov3,1375,17,52,0
+0.15,kf_motion,1420,17,64,0

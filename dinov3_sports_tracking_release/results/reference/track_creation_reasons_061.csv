@@ -1,0 +1,3 @@
+Method,Gate_Rejected,Passed_Not_Selected,No_Same_GT_Candidate
+kf_motion,82,1,0
+kf_dinov3,73,2,0
