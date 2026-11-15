@@ -30,7 +30,7 @@ I first compared individual frames. I then built a tracker that updates identiti
 
 ### 1. DINOv3 appearance matching
 
-I compared frame 1 and frame 10 in SNMOT-060. The average cosine similarity was **0.8871** for the same identity and **0.6080** for different identities. My appearance only Top 1 retrieval found **17 of 18** identities. Hungarian matching found **18 of 18** in this frame pair.
+I compared frame 1 and frame 10 in SNMOT-060. The average cosine similarity was **0.8871** for the same identity and **0.6080** for different identities. My appearance only Top 1 retrieval found **17 of 18** identities. Hungarian matching found **18 of 18** in this frame pair. I ran this comparison before I excluded the ball, so the 18 identities include the ball (GT ID 18).
 
 The appearance features carried useful identity information in this example. I also found high similarity between some different players, which made me interested in combining appearance and motion information.
 
@@ -46,15 +46,25 @@ I removed selected player detections for 2, 3, 5, or 8 frames. In SNMOT-060, I t
 | Kalman motion | 48 / 48 |
 | Kalman with DINOv3 | 48 / 48 |
 
-I counted a recovery when the player received the same predicted track ID before and after the gap and the track was not assigned to another identity during the checked interval. I use this as a custom recovery metric.
+I counted a recovery when the player received the same predicted track ID before and after the gap and the track was not assigned to another identity during the checked interval. This is my own recovery metric.
 
-Appearance matching helped more than static IoU in these tests. After adding Kalman prediction, the motion method recovered all the tested cases, and the DINOv3 features did not change the measured recovery rate in this setup.
+Appearance matching helped more than static IoU in these tests. After adding Kalman prediction, the motion method recovered all the tested cases, and Kalman with DINOv3 recovered all of them as well.
 
 ### 3. A case where appearance matching went wrong
 
 I investigated a detection gap for GT ID 7. At frame 44, the appearance tracker assigned its track to GT ID 10. The appearance similarity was about **0.8062**, while box IoU was **0**. The fixed fusion score was **0.4516**, below the matching threshold of **0.55**.
 
 This helped me understand how similar football uniforms can cause identity confusion and how spatial checks can reject some incorrect matches.
+
+In my original Kaggle Notebook, I removed GT ID 7 from frames 40 to 44 and used a max track age of 5 for this case. With this code, I can write the candidate scores of the IoU, appearance and fusion trackers for the same case:
+
+```bash
+python run_experiment.py --sequence-dir data/SNMOT-060 --exclude-ids 18 \
+  --cache cache/SNMOT-060.npz --output outputs/gap_logs_060 \
+  --experiment gap_logs --log-target 7 --log-start 40 --log-length 5 --max-age 5
+```
+
+I then look at the rows with Frame 44 and Track_ID 7 in `gap_candidate_logs_appearance.csv`.
 
 ### 4. Tracking with imperfect detection boxes
 
@@ -67,7 +77,9 @@ I tested synthetic detection errors on SNMOT-061. With clean ground truth boxes,
 | 15% box jitter | 1,420 | 1,375 |
 | One synthetic false positive per frame | 8 | 6 |
 
-Under 20% missing detections, detection recall was about **79.46%**. With 15% box jitter, detection recall was about **79.80%** using an IoU threshold of 0.5. I used the known source identity of each synthetic detection to separately check ID continuity.
+I counted the ID changes in this table with the known source identity of each synthetic box (`evaluate_known_correspondence`). My notebook file [`quality_stress_061.csv`](results/reference/quality_stress_061.csv) also has `ID_Changes_Diagnostic`, where I first match each box to a ground truth box at IoU ≥ 0.5. About 80% of the jittered boxes pass that match, so the same 15% jitter run gives **965** and **941** there. In the other three conditions the boxes keep their positions, and both counts are the same. My `quality` experiment writes both counts.
+
+Under 20% missing detections, detection recall was about **79.46%**. With 15% box jitter, detection recall was about **79.80%** using an IoU threshold of 0.5.
 
 I found that noisy box locations created many more track IDs. In one run, KF Motion created **100** tracks and KF with DINOv3 created **92** tracks from **17** annotated player identities.
 
@@ -84,7 +96,17 @@ I recorded candidate scores, Mahalanobis distances, gate decisions, and track cr
 
 I noticed that the filter used a fixed measurement noise variance of **16 px²**, while the synthetic box offsets could be much larger. I decided to test different R values instead of immediately changing the appearance model.
 
-### 6. Testing measurement noise R
+### 6. Why DINOv3 changed little in my Kalman tracker
+
+When I looked at my matching code together with the diagnostics, I found two reasons.
+
+First, I use the same motion gate (d² ≤ 9.21) for both Kalman methods, and I only add the appearance score after a candidate passes the gate. In the 15% jitter run, 82 of the 83 tracks that KF Motion created after the first frame, and 73 of the 75 for KF with DINOv3, came from the correct candidate being rejected by the gate. In my design, appearance only chooses among the candidates that already passed the motion gate, so it has no chance to bring these back.
+
+Second, the way I combine the scores gives appearance a small range. With the averages from section 1, `(cos + 1) / 2` turns **0.887** (same identity) into **0.944** and **0.608** (different identities) into **0.804**. After my weight of 0.45, the difference is only about **0.06**. The motion score `exp(-0.5 d²)` goes from 1 down to 0.01 inside the gate, which is a range of about **0.54** after my weight of 0.55. So motion decides most of the assignments.
+
+My Kalman with DINOv3 tracker follows the same idea as DeepSORT, which also uses the Kalman Mahalanobis distance as a gate before appearance. Next, I want to give appearance a bigger role, for example by letting unmatched tracks try appearance matching with a looser gate, or by rescaling the cosine similarity to the range where players actually differ.
+
+### 7. Testing measurement noise R
 
 I compared **R = 16, 64, 144, and 256**, using the same detection inputs and association settings. Increasing R reduced identity changes and extra track creation in the synthetic jitter experiments.
 
@@ -106,6 +128,10 @@ I then used a different sequence, SNMOT-060, with a new random seed and fixed se
 
 This was the most useful part of the project for me. I found a tracking problem, followed the matching logs to a possible cause, changed one Kalman setting, and checked the result on another sequence.
 
+My jitter moves the box center with a standard deviation of 0.15 × box height in y and 0.15 × box width in x. In SNMOT-061, the median player box is about 106 px tall and 58 px wide (I took the median size of each player ID and then the median over the IDs). With 15% jitter, that gives a standard deviation of about 16 px in y, which is a variance of about 250 px², very close to R = 256. In x, it is about 9 px, or about 75 px². So it makes sense that R = 256 worked best among the values I tested. The Kalman filter works best when R matches the real measurement noise.
+
+Because my noise grows with box size, my next step is a size dependent R, for example R = diag((0.15·w)², (0.15·h)²). DeepSORT also scales its noise with box height. With a real detector, I would estimate R from the differences between detector boxes and ground truth boxes, and then check the filter with the normalized innovation squared (NIS). When R and Q fit the data, the average d² for a 2D measurement is about 2.
+
 The CSV files in [`results/reference/`](results/reference/) come from my original executed Kaggle Notebook. I also ran this organized Python project in Kaggle with SNMOT-061 and confirmed the main baseline, detection quality, Kalman diagnostic, and R sensitivity results again.
 
 ## How I organized the code
@@ -114,12 +140,11 @@ The CSV files in [`results/reference/`](results/reference/) come from my origina
 run_experiment.py                 Main script to run my experiments
 src/data.py                       SoccerNet input files and feature cache
 src/features.py                   Frozen DINOv3 feature extraction
-src/association.py                IoU and Hungarian matching
+src/association.py                IoU between boxes
 src/simple_tracker.py             IoU, appearance and fixed fusion trackers
-src/simple_diagnostics.py         Candidate logs for the simple trackers
 src/kalman.py                     Kalman position prediction and configurable R
-src/kalman_tracker.py             Kalman motion and DINOv3 tracking
-src/diagnostics.py                Kalman candidate and event logs
+src/kalman_tracker.py             Kalman motion and DINOv3 tracking with configurable R
+src/diagnostics.py                Candidate and event logs for all my trackers
 src/corruption.py                 Synthetic detection errors
 src/evaluation.py                 My tracking and quality measurements
 experiments/appearance_analysis.py  Frame matching experiments
@@ -137,6 +162,8 @@ I run the experiments with Python and PyTorch. For DINOv3, I use the pretrained 
 python -m pip install -r requirements.txt
 python -m pytest -q tests
 ```
+
+I can run the tests without PyTorch or the DINOv3 weights.
 
 With a SoccerNet sequence extracted into a folder containing `img1/` and `gt/gt.txt`:
 
@@ -196,7 +223,9 @@ I use `python run_experiment.py --help` to see the other options. I also put my 
 
 My main takeaway is that detection quality matters as much as the matching algorithm. Clean boxes made the tracking task easy, but localization noise exposed problems in motion gating and track management. DINOv3 helped with some identity recovery cases, while motion prediction was stronger in other situations. I learned that adding a visual model does not automatically improve every tracking decision.
 
-The results above are from controlled experiments with ground truth boxes and synthetic detection errors. I report recovery rate, identity changes, and track contamination using the definitions in my evaluation code. I use them to compare my approaches within this project. I would like to add real person detections, more challenging video sequences, and standard MOT metrics such as HOTA and IDF1 next.
+I ran these experiments with ground truth boxes and synthetic detection errors, and I measured recovery rate, identity changes and track contamination with my own definitions in `src/evaluation.py`. Next, I want to run the trackers on real person detections and longer sequences, and add standard MOT metrics such as HOTA and IDF1.
+
+I also want to move the tracking from image pixels to the pitch. Right now my Kalman filter tracks the box center in pixels. For player tracking data, the useful position is the point under the player's feet on the pitch, in metres. With camera calibration, I can project the bottom center of each box onto the pitch plane and run the Kalman filter there. Then speed, R and Q have physical units, such as a maximum player speed in m/s, and I can measure how a calibration error of a given size changes player positions, speeds and identity switches.
 
 I keep the repository focused on code and small result tables. I use SoccerNet data and DINOv3 weights according to their respective access conditions. See [`LICENSE_NOTICE.md`](LICENSE_NOTICE.md) for more information.
 
